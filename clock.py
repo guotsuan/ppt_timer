@@ -10,7 +10,7 @@
 
 """
 import sys
-from PyQt5.QtCore import QTime, QTimer, QCoreApplication, Qt
+from PyQt5.QtCore import QTimer, QCoreApplication, Qt
 from PyQt5 import uic,QtGui
 from PyQt5.QtWidgets import QApplication, QLCDNumber,QMainWindow, QVBoxLayout,\
     QWidget,QPushButton, QCheckBox, QLineEdit, QLabel, QHBoxLayout, QStatusBar,\
@@ -20,8 +20,10 @@ class DigitalClock(QMainWindow):
 
     # duration time in mins
     targetTime = 10
+    answerTime = 5
     counter = 0
     willblack = True
+    p = 'report'
 
 
     def __init__(self, parent=None):
@@ -29,7 +31,7 @@ class DigitalClock(QMainWindow):
         self.central = QWidget(self)
         # self.setWindowTitle("SHAO PPT记时")
 
-        self.setWindowFlags(Qt.CustomizeWindowHint|Qt.WindowCloseButtonHint)
+        self.setWindowFlags(Qt.CustomizeWindowHint|Qt.WindowCloseButtonHint|Qt.WindowStaysOnTopHint)
         # initial timer
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.showTime)
@@ -100,7 +102,8 @@ class DigitalClock(QMainWindow):
     def setTimer(self):
         if self.line.text():
             try:
-                self.targetTime = float(self.line.text())
+                self.targetTime = float(self.line.text().split(",")[0])
+                self.answerTime = float(self.line.text().split(",")[1])
                 # self.nameLabel.setText('Duration: ' + str(self.targetTime) + ' mins')
             except ValueError:
                 self.line.clear()
@@ -109,6 +112,7 @@ class DigitalClock(QMainWindow):
             self.targetTime = 10.0
 
         self.inicio = self.targetTime*60
+        self.p = 'report'
         self.updateLCD()
         self.start_button.setText('S')
         self.counter = 0
@@ -122,6 +126,7 @@ class DigitalClock(QMainWindow):
 
     def restartTimer(self):
         # Reset the timer and the lcd
+        self.p = 'report'
         if self.counter == 0:
             self.timer.start(1000)
             self.start_button.setText('P')
@@ -143,83 +148,82 @@ class DigitalClock(QMainWindow):
         self.updateLCD()
 
         if self.inicio == 0:
+            self.stopTimer()
             self.timer.stop()
+            self.start_button.setText('S')
+            self.counter = 0
             if self.willblack:
                 self.blackscreen()
 
     def blackscreen(self):
-        import sys
 
-        if sys.platform.startswith('linux'):
-            import os
-            os.system("xset dpms force off")
+        self.dialog = QDialog()
+        self.dialog.resize(1024,768)
 
-        elif sys.platform.startswith('win'):
-
-            self.dialog = QDialog()
-            self.dialog.resize(1024,768)
-            self.db = QPushButton("ok",self.dialog)
-            # self.dialog.showFullScreen()
-
-            self.dcentral = QWidget(self)
-            self.dlayout = QVBoxLayout()
-            self.dlabel = QLabel()
-            self.dlabel.setAlignment(Qt.AlignCenter)
+        self.dcentral = QWidget(self)
+        self.dlayout = QVBoxLayout()
+        self.dlabel = QLabel()
+        self.dlabel.setAlignment(Qt.AlignCenter)
+        if self.p == 'report':
+            self.db = QPushButton("按此进入答辩环节 (5秒后自动进入)",self.dialog)
+            self.db.setStyleSheet('QPushButton {color: black;}')
             self.dlabel.setText("汇报时间到")
-            newfont = QtGui.QFont("SimSun", 120)
-            self.dlabel.setFont(newfont)
-            self.dlayout.addWidget(self.dlabel)
-            self.dlayout.addWidget(self.db)
-            self.dialog.setLayout(self.dlayout)
-            # self.setCentralWidget(self.dcentral)
-            self.dlabel.resize(400, 300)
+            self.puttontime = 5
+            self.btimer = QTimer(self)
+            self.btimer.timeout.connect(self.countdown)
+            self.btimer.start(1000)
+        else:
+            self.dlabel.setText("答辩时间到")
+            self.db = QPushButton("5秒后自动结束",self.dialog)
+            self.db.setStyleSheet('QPushButton {color: black;}')
+            self.puttontime = 5
+            self.btimer = QTimer(self)
+            self.btimer.timeout.connect(self.countdown)
+            self.btimer.start(1000)
+        newfont = QtGui.QFont("SimSun", 120)
+        bfont = QtGui.QFont("Hei", 45)
+        self.db.setFont(bfont)
+        self.dlabel.setFont(newfont)
+        self.dlayout.addWidget(self.dlabel)
+        self.dlayout.addWidget(self.db)
+        self.dialog.setLayout(self.dlayout)
+        self.db.setMaximumHeight(120)
+        # self.setCentralWidget(self.dcentral)
+        self.dlabel.resize(400, 300)
 
-            self.db.clicked.connect(self.closeit)
-            self.dialog.setWindowFlags(Qt.WindowStaysOnTopHint)
+        self.db.clicked.connect(self.closeit)
+        self.dialog.setWindowFlags(Qt.WindowStaysOnTopHint)
 
-            self.dialog.exec_()
-            # import os
-            # winpath = os.environ["windir"]
-            # os.system(winpath + r'\system32\rundll32 user32.dll, LockWorkStation')
+        self.dialog.exec_()
 
-        elif sys.platform.startswith('darwin'):
-            # import subprocess
-            # subprocess.call('echo \'tell application "Finder" to sleep\' | osascript', shell=True)
+    def countdown(self):
+        self.puttontime -=1
+        if self.p == 'report':
+            self.db.setText("按此确认进入答辩环节 (" + str(self.puttontime) +
+                            "秒后自动进入)")
+        else:
+            self.db.setText(str(self.puttontime) + "秒后自动结束")
 
-            self.dialog = QDialog()
-            self.dialog.resize(1024,768)
-            self.db = QPushButton("ok",self.dialog)
-            # self.dialog.showFullScreen()
+        self.updateLCD()
 
-            self.dcentral = QWidget(self)
-            self.dlayout = QVBoxLayout()
-            self.dlabel = QLabel()
-            self.dlabel.setAlignment(Qt.AlignCenter)
-            self.dlabel.setText("汇报时间到")
-            newfont = QtGui.QFont("SimSun", 120)
-            self.dlabel.setFont(newfont)
-            self.dlayout.addWidget(self.dlabel)
-            self.dlayout.addWidget(self.db)
-            self.dialog.setLayout(self.dlayout)
-            # self.setCentralWidget(self.dcentral)
-            self.dlabel.resize(400, 300)
+        if self.puttontime == 0:
+            self.btimer.stop()
+            self.closeit()
 
-            self.db.clicked.connect(self.closeit)
-            self.dialog.setWindowFlags(Qt.WindowStaysOnTopHint)
-
-            self.dialog.exec_()
-
-            # dialog.showFullScreen()
-   # msg.setIcon(QMessageBox.Information)
-
-            # msg = QMessageBox(Qt.WindowStaysOnTopHint)
-            # msg.setText("汇报结束")
-            # msg.setStandardButtons(QMessageBox.Ok)
-            # msg.exec_()
-            # msg.buttonClicked.connect(msgbtn)
 
     def closeit(self):
         self.dialog.close()
+        if self.p == 'report':
+            self.inicio = self.answerTime*60
+            self.timer.start(1000)
+            self.p = 'answer'
+        else:
+            self.inicio = self.targetTime*60
+            self.timer.stop()
+            self.p = 'report'
+        self.updateLCD()
+        self.start_button.setText('S')
+        self.counter = 0
 
 
 if __name__ == '__main__':
